@@ -29,11 +29,10 @@ public interface CommonTreeService<T extends BaseTree> {
     /**
      * 移动节点
      * @param currentId
-     * @param previousId
      * @param nextId
      * @param body
      */
-    public void moveNode(String currentId, String previousId, String nextId, @Nullable Object body);
+    public void moveNode(String currentId, String nextId, @Nullable Object body);
 
     /**
      * 新增节点

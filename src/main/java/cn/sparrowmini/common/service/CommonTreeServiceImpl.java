@@ -32,8 +32,8 @@ public class CommonTreeServiceImpl<T extends BaseTree> implements CommonTreeServ
     }
 
     @Override
-    public void moveNode(String currentId, String previousId, String nextId, Object body) {
-        this.commonTreeRepository.move(currentId, previousId, nextId);
+    public void moveNode(String currentId, String nextId, Object body) {
+        this.commonTreeRepository.move(currentId, nextId);
     }
 
     @Override

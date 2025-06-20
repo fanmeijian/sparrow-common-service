@@ -1,6 +1,5 @@
 package cn.sparrowmini.common.model;
 
-import org.apache.commons.lang3.RandomUtils;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.NoRepositoryBean;
@@ -13,6 +12,25 @@ import java.util.stream.Collectors;
 
 @NoRepositoryBean
 public interface BaseTreeRepository<S extends BaseTree> extends BaseEntityJpaRepository<S, String> {
+
+    @Query("select max(t.seq) from #{#entityName} t where t.parentId is null")
+    BigDecimal getRootMaxSeq();
+
+    @Query("select max(t.seq) from #{#entityName} t where t.parentId=:parentId")
+    BigDecimal getMaxSeqByParentId(String parentId);
+
+    @Query("select max(t.seq) from #{#entityName} t where t.parentId=:parentId and t.seq<:seq")
+    BigDecimal getPreSeqByParentId(String parentId, BigDecimal seq);
+
+    @Query("select max(t.seq) from #{#entityName} t where t.parentId is null and t.seq<:seq")
+    BigDecimal getRootPreSeq(BigDecimal seq);
+
+    @Query("select min(t.seq) from #{#entityName} t where t.parentId is null")
+    BigDecimal getRootFirstSeq();
+
+    @Query("select min(t.seq) from #{#entityName} t where t.parentId=:parentId")
+    BigDecimal getFirstSeqByParentId(String parentId);
+
     Page<S> findByParentId(String parentId, Pageable pageable);
 
     long countByParentId(String parentId);
@@ -36,63 +54,54 @@ public interface BaseTreeRepository<S extends BaseTree> extends BaseEntityJpaRep
     /***
      * 移动当前节点重新排序
      * @param currentId
-     * @param previousId
      * @param nextId
      */
     @Transactional
-    default void move(String currentId, String previousId, String nextId) {
+    default void move(String currentId, String nextId) {
+        BigDecimal step = BigDecimal.valueOf(0.0001);
+        BigDecimal two = BigDecimal.valueOf(2);
         S current = this.getReferenceById(currentId);
-        S previous = previousId == null ? null : this.getReferenceById(previousId);
         S next = nextId == null ? null : this.getReferenceById(nextId);
+        BigDecimal newSeq = null;
 
-        if (previous == null && next != null) {
-            // 设置一个比NEXT排序小的数字
-            if ( next.getParentId() == null || current.getParentId()==null || next.getParentId().equals(current.getParentId())) {
-                BigDecimal newSeq = next.getSeq().divide(BigDecimal.valueOf(2));
-                current.setSeq(newSeq);
-                current.setParentId(next.getParentId());
-            } else {
+        if(next!=null){
+            if(current.getParentId()!=null && next.getParentId()!=null && current.getParentId().equals(next.getParentId())){
+               BigDecimal preSeq= getPreSeqByParentId(current.getParentId(), next.getSeq());
+               if(preSeq==null){
+                   // move to first node
+                   newSeq =  next.getSeq().subtract(step);
+               }else{
+                   // insert to middle
+                   newSeq =  preSeq.add(next.getSeq()).divide(two);
+               }
+
+
+            }else if(current.getParentId()==null && next.getParentId()==null){
+                BigDecimal preSeq=getRootPreSeq(next.getSeq());
+                if(preSeq==null){
+                    // move to root first node
+                    newSeq =  next.getSeq().subtract(step);
+                }else{
+                    // insert to middle
+                    newSeq =  preSeq.add(next.getSeq()).divide(two);
+                }
+
+
+            }else{
                 throw new RuntimeException(String.format("不能插入到不同层级的前后节点 前 %s 后 %s", "无", next.getName() + nextId));
             }
-
         }
 
-        if (previous == null && next == null) {
-            // do nothing
-        }
-
-        if (previous != null && next != null) {
-            //the same parent
-            if ((previous.getParentId() == null && next.getParentId() == null && current.getParentId() == null)
-                    || (previous.getParentId() != null && previous.getParentId().equals(next.getParentId()) && current.getParentId().equals(previous.getParentId()))
-            ) {
-                // 设置一个比PREVIOUS排序大的数字且比NEXT小的数字
-                BigDecimal newSeq = previous.getSeq().add(next.getSeq()).divide(BigDecimal.valueOf(2));
-//                if (previous.getSeq().floatValue() < next.getSeq().floatValue()) {
-//                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(previous.getSeq().floatValue(), next.getSeq().floatValue()));
-//                } else {
-//                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(next.getSeq().floatValue(), previous.getSeq().floatValue()));
-//                }
-                current.setSeq(newSeq);
-                current.setParentId(previous.getParentId());
-            } else {
-                throw new RuntimeException(String.format("不能插入到不同层级的前后节点 前 %s 后 %s", previous.getName() + previousId, next.getName() + nextId));
+        if(next==null){
+            // move the last
+            if(current.getParentId()==null){
+                newSeq = getRootMaxSeq().add(step);
+            }else{
+                newSeq = getMaxSeqByParentId(current.getParentId()).add(step);
             }
+
         }
-
-        if (previous != null && next == null) {
-
-
-            if (previous.getParentId().equals(current.getParentId())) {
-                // 设置一个比PREVIOUS排序大的数字
-                BigDecimal newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(previous.getSeq().floatValue(), previous.getSeq().add(BigDecimal.ONE).floatValue()));
-                current.setSeq(newSeq);
-                current.setParentId(previous.getParentId());
-            } else {
-                throw new RuntimeException(String.format("不能插入到不同层级的前后节点 前 %s 后 %s", previous.getName() + previousId, "无"));
-            }
-        }
-
+        current.setSeq(newSeq);
         this.save(current);
     }
 
