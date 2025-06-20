@@ -47,8 +47,8 @@ public interface BaseTreeRepository<S extends BaseTree> extends BaseEntityJpaRep
 
         if (previous == null && next != null) {
             // 设置一个比NEXT排序小的数字
-            if (next.getParentId().equals(current.getParentId())) {
-                BigDecimal newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(next.getSeq().subtract(BigDecimal.ONE).floatValue(), next.getSeq().floatValue()));
+            if ( next.getParentId() == null || current.getParentId()==null || next.getParentId().equals(current.getParentId())) {
+                BigDecimal newSeq = next.getSeq().divide(BigDecimal.valueOf(2));
                 current.setSeq(newSeq);
                 current.setParentId(next.getParentId());
             } else {
@@ -67,12 +67,12 @@ public interface BaseTreeRepository<S extends BaseTree> extends BaseEntityJpaRep
                     || (previous.getParentId() != null && previous.getParentId().equals(next.getParentId()) && current.getParentId().equals(previous.getParentId()))
             ) {
                 // 设置一个比PREVIOUS排序大的数字且比NEXT小的数字
-                BigDecimal newSeq = null;
-                if (previous.getSeq().floatValue() < next.getSeq().floatValue()) {
-                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(previous.getSeq().floatValue(), next.getSeq().floatValue()));
-                } else {
-                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(next.getSeq().floatValue(), previous.getSeq().floatValue()));
-                }
+                BigDecimal newSeq = previous.getSeq().add(next.getSeq()).divide(BigDecimal.valueOf(2));
+//                if (previous.getSeq().floatValue() < next.getSeq().floatValue()) {
+//                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(previous.getSeq().floatValue(), next.getSeq().floatValue()));
+//                } else {
+//                    newSeq = BigDecimal.valueOf(RandomUtils.nextFloat(next.getSeq().floatValue(), previous.getSeq().floatValue()));
+//                }
                 current.setSeq(newSeq);
                 current.setParentId(previous.getParentId());
             } else {
