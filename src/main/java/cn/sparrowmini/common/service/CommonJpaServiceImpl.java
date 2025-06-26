@@ -127,6 +127,43 @@ public class CommonJpaServiceImpl implements CommonJpaService {
         cq.select(root);
 
         // 构建动态 where 条件
+        List<Predicate> predicates = this.getPredicates(root, cb, filterList);
+
+        if (!predicates.isEmpty()) {
+            cq.where(predicates.toArray(new Predicate[0]));
+        }
+
+        // 排序
+        if (pageable.getSort().isSorted()) {
+            List<Order> orders = new ArrayList<>();
+            for (Sort.Order order : pageable.getSort()) {
+                Path<Object> path = root.get(order.getProperty());
+                orders.add(order.isAscending() ? cb.asc(path) : cb.desc(path));
+            }
+            cq.orderBy(orders);
+        }
+
+        TypedQuery<Object> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+        List<Object> resultList = query.getResultList();
+
+        // 查询总数
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Class<?> entityType = root.getModel().getBindableJavaType();
+        Root<?> countRoot = countQuery.from(entityType);
+        countQuery.select(cb.count(countRoot));
+        List<Predicate> countPredicates = this.getPredicates(countRoot, cb, filterList);
+        if (!countPredicates.isEmpty()) {
+            countQuery.where(countPredicates.toArray(new Predicate[0]));
+        }
+        Long total = entityManager.createQuery(countQuery).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, total);
+    }
+
+    private List<Predicate> getPredicates(Root<?> root,CriteriaBuilder cb, List<SimpleJpaFilter> filterList){
+        // 构建动态 where 条件
         List<Predicate> predicates = new ArrayList<>();
         if (filterList != null && !filterList.isEmpty()) {
             for (SimpleJpaFilter filter : filterList) {
@@ -155,35 +192,6 @@ public class CommonJpaServiceImpl implements CommonJpaService {
                 }
             }
         }
-
-        if (!predicates.isEmpty()) {
-            cq.where(predicates.toArray(new Predicate[0]));
-        }
-
-        // 排序
-        if (pageable.getSort().isSorted()) {
-            List<Order> orders = new ArrayList<>();
-            for (Sort.Order order : pageable.getSort()) {
-                Path<Object> path = root.get(order.getProperty());
-                orders.add(order.isAscending() ? cb.asc(path) : cb.desc(path));
-            }
-            cq.orderBy(orders);
-        }
-
-        TypedQuery<Object> query = entityManager.createQuery(cq);
-        query.setFirstResult((int) pageable.getOffset());
-        query.setMaxResults(pageable.getPageSize());
-        List<Object> resultList = query.getResultList();
-
-        // 查询总数
-        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
-        Root<?> countRoot = countQuery.from(clazz);
-        countQuery.select(cb.count(countRoot));
-        if (!predicates.isEmpty()) {
-            countQuery.where(predicates.toArray(new Predicate[0]));
-        }
-        Long total = entityManager.createQuery(countQuery).getSingleResult();
-
-        return new PageImpl<>(resultList, pageable, total);
+        return predicates;
     }
 }
