@@ -28,6 +28,7 @@ import java.util.*;
 import static cn.sparrowmini.common.util.JpaUtils.convertToPkValue;
 import static cn.sparrowmini.common.util.JpaUtils.findPrimaryKeyField;
 
+
 @NoRepositoryBean
 public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
 
@@ -64,6 +65,52 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
         };
         return findAll(specification, pageable);
     }
+
+    default void updateAll(List<Map<String, Object>> mapList, Class<?> entityClass, Class<?> idClass) {
+        List<T> entities = new ArrayList<>();
+        mapList.forEach(map->{
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            Field pkField = findPrimaryKeyField(entityClass);
+            String pkFieldName = pkField.getName();
+            Object idRaw = map.get(pkFieldName);
+            Object pkValue;
+
+            if (idRaw == null) {
+                throw new IllegalArgumentException("更新数据中缺少主键字段: " + pkFieldName);
+            }
+
+            if (idClass.isInstance(idRaw)) {
+                pkValue = idRaw;
+            } else if (idRaw instanceof String || idRaw instanceof Number) {
+                pkValue = convertToPkValue(idRaw, idClass);
+            } else if (idRaw instanceof Map) {
+                pkValue = objectMapper.convertValue(idRaw, idClass);
+            } else {
+                throw new IllegalArgumentException("不支持的主键结构: " + idRaw.getClass());
+            }
+
+            if(existsById((ID)pkValue)){
+                Map<String, Object> patchCopy = new HashMap<>(map);
+                patchCopy.remove(pkFieldName);
+
+                T reference = getReferenceById((ID) pkValue);
+                try {
+                    objectMapper.readerForUpdating(reference)
+                            .readValue(objectMapper.writeValueAsString(patchCopy));
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException("Patch更新失败" + e.getOriginalMessage(), e);
+                }
+                entities.add(reference);
+            }else{
+                T newEntity = (T) objectMapper.convertValue(map,entityClass);
+                entities.add(newEntity);
+            }
+
+        });
+        saveAll(entities);
+    }
+
     default void update(Map<String, Object> map) {
         ObjectMapper objectMapper = new ObjectMapper();
         Class<?> entityClass = resolveEntityClassFromRepository(this);
@@ -103,17 +150,21 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
     }
 
     default <T> Class<T> resolveEntityClassFromRepository(Object repository) {
-        for (Type genericInterface : repository.getClass().getInterfaces()) {
-            if (genericInterface instanceof ParameterizedType pt) {
-                Type rawType = pt.getRawType();
-                if (rawType instanceof Class<?> clazz &&
-                        JpaRepository.class.isAssignableFrom(clazz)) {
-                    Type actualType = pt.getActualTypeArguments()[0];
-                    if (actualType instanceof Class<?>) {
-                        return (Class<T>) actualType;
+        Class<?> clazz = repository.getClass();
+        while (clazz != null) {
+            for (Type genericInterface : clazz.getGenericInterfaces()) {
+                if (genericInterface instanceof ParameterizedType pt) {
+                    Type rawType = pt.getRawType();
+                    if (rawType instanceof Class<?> rawClazz &&
+                            JpaRepository.class.isAssignableFrom(rawClazz)) {
+                        Type actualType = pt.getActualTypeArguments()[0];
+                        if (actualType instanceof Class<?>) {
+                            return (Class<T>) actualType;
+                        }
                     }
                 }
             }
+            clazz = clazz.getSuperclass(); // 向上查找父类
         }
         throw new IllegalStateException("无法解析实体类型");
     }
@@ -134,5 +185,8 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
         throw new IllegalStateException("无法解析主键类型");
     }
 
-
+    @SuppressWarnings("unchecked")
+    default Class<T> getEntityClass() {
+        return (Class<T>) RepositoryUtils.getDomainType(this);
+    }
 }
