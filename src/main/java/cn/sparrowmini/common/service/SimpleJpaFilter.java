@@ -10,4 +10,5 @@ public class SimpleJpaFilter {
     private String operator; // 支持 "=", "like", ">", "<" 等
     private Object value;
     private LevelTypeEnum type;
+    private String filterType;
 }

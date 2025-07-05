@@ -1,5 +1,6 @@
 package cn.sparrowmini.common.repository;
 
+import cn.sparrowmini.common.antlr.PredicateBuilder;
 import cn.sparrowmini.common.service.SimpleJpaFilter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Path;
@@ -45,4 +46,5 @@ public class SimpleJpaFilterHelper {
         }
         return predicates;
     }
+
 }

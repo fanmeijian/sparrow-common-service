@@ -1,6 +1,7 @@
 package cn.sparrowmini.common.repository;
 
 import cn.sparrowmini.common.CurrentUser;
+import cn.sparrowmini.common.antlr.PredicateBuilder;
 import cn.sparrowmini.common.model.CommonStateEnum;
 import cn.sparrowmini.common.service.SimpleJpaFilter;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -61,6 +62,17 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
                 List<Predicate> predicates = SimpleJpaFilterHelper.getPredicates(root, criteriaBuilder, filters);
                 return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
 
+            }
+        };
+        return findAll(specification, pageable);
+    }
+
+    default Page<T> findAll(Pageable pageable, String filter) {
+        Specification<T> specification = new Specification<T>() {
+
+            @Override
+            public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+                return PredicateBuilder.buildPredicate(filter, criteriaBuilder, root);
             }
         };
         return findAll(specification, pageable);
