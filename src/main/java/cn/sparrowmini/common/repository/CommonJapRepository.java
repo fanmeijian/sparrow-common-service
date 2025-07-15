@@ -7,6 +7,8 @@ import cn.sparrowmini.common.service.SimpleJpaFilter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -82,7 +84,8 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
         List<T> entities = new ArrayList<>();
         mapList.forEach(map->{
             ObjectMapper objectMapper = new ObjectMapper();
-
+            objectMapper.registerModule(new JavaTimeModule());
+            objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // 推荐，避免变成 timestamp
             Field pkField = findPrimaryKeyField(entityClass);
             String pkFieldName = pkField.getName();
             Object idRaw = map.get(pkFieldName);
@@ -125,6 +128,8 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
 
     default void update(Map<String, Object> map) {
         ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // 推荐，避免变成 timestamp
         Class<?> entityClass = resolveEntityClassFromRepository(this);
         Class<?> idClass = resolveIdClassFromRepository(this);
 
