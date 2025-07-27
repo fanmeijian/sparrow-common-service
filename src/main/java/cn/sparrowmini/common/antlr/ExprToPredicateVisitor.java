@@ -6,6 +6,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * String expr = "(status = 'SENT' and createdAt > '2024-07-01') or category in ('A', 'B') and expireAt is not null";
@@ -165,6 +168,20 @@ public class ExprToPredicateVisitor extends ExprBaseVisitor<Predicate> {
         String fieldName = ctx.field().getText();
         Path<Object> path = root.get(fieldName);
 
+        // 获取字段的 Java 类型
+        Class<?> javaType = path.getJavaType();
+
+        // 如果是集合类型（如 Set、List 等）
+        if (Collection.class.isAssignableFrom(javaType)) {
+            List<Predicate> predicates = new ArrayList<>();
+            for (ExprParser.ValueContext valueCtx : ctx.valueList().value()) {
+                Object val = parseValue(valueCtx);
+                predicates.add(cb.isMember(val, root.get(fieldName)));
+            }
+            return cb.or(predicates.toArray(new Predicate[0]));
+        }
+
+        // 普通字段处理
         CriteriaBuilder.In<Object> in = cb.in(path);
         for (ExprParser.ValueContext valueCtx : ctx.valueList().value()) {
             in.value(parseValue(valueCtx));
