@@ -65,25 +65,26 @@ public interface BaseTreeRepository<S extends BaseTree> extends BaseEntityJpaRep
         BigDecimal newSeq = null;
 
         if(next!=null){
+            final BigDecimal nextSeq=next.getSeq();
             if(current.getParentId()!=null && next.getParentId()!=null && current.getParentId().equals(next.getParentId())){
                BigDecimal preSeq= getPreSeqByParentId(current.getParentId(), next.getSeq());
                if(preSeq==null){
                    // move to first node
-                   newSeq =  next.getSeq().subtract(step);
+                   newSeq =  nextSeq.subtract(step);
                }else{
                    // insert to middle
-                   newSeq =  preSeq.add(next.getSeq()).divide(two);
+                   newSeq =  preSeq.add(nextSeq).divide(two);
                }
 
 
             }else if(current.getParentId()==null && next.getParentId()==null){
-                BigDecimal preSeq=getRootPreSeq(next.getSeq());
+                BigDecimal preSeq=getRootPreSeq(nextSeq);
                 if(preSeq==null){
                     // move to root first node
-                    newSeq =  next.getSeq().subtract(step);
+                    newSeq =  nextSeq.subtract(step);
                 }else{
                     // insert to middle
-                    newSeq =  preSeq.add(next.getSeq()).divide(two);
+                    newSeq =  preSeq.add(nextSeq).divide(two);
                 }
 
 
