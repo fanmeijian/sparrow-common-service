@@ -80,9 +80,23 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
         return findAll(specification, pageable);
     }
 
+    default <U> Page<U> findAll(Pageable pageable, String filter, Class<U> projectionClass) {
+        Specification<T> specification = new Specification<T>() {
+
+            @Override
+            public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+                return PredicateBuilder.buildPredicate(filter, criteriaBuilder, root);
+            }
+        };
+        return findBy(
+                specification,
+                query -> query.as(projectionClass).page(pageable)
+        );
+    }
+
     default void updateAll(List<Map<String, Object>> mapList, Class<?> entityClass, Class<?> idClass) {
         List<T> entities = new ArrayList<>();
-        mapList.forEach(map->{
+        mapList.forEach(map -> {
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.registerModule(new JavaTimeModule());
             objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // 推荐，避免变成 timestamp
@@ -105,7 +119,7 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
                 throw new IllegalArgumentException("不支持的主键结构: " + idRaw.getClass());
             }
 
-            if(existsById((ID)pkValue)){
+            if (existsById((ID) pkValue)) {
                 Map<String, Object> patchCopy = new HashMap<>(map);
                 patchCopy.remove(pkFieldName);
 
@@ -117,8 +131,8 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
                     throw new RuntimeException("Patch更新失败" + e.getOriginalMessage(), e);
                 }
                 entities.add(reference);
-            }else{
-                T newEntity = (T) objectMapper.convertValue(map,entityClass);
+            } else {
+                T newEntity = (T) objectMapper.convertValue(map, entityClass);
                 entities.add(newEntity);
             }
 
