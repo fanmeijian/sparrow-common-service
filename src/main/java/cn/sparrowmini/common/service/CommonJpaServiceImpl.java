@@ -209,7 +209,7 @@ public class CommonJpaServiceImpl implements CommonJpaService {
         Root<?> countRoot = countQuery.from(entityType);
         countQuery.select(cb.count(countRoot));
         if (filter!=null && !filter.isBlank()) {
-            countQuery.where(PredicateBuilder.buildPredicate(filter, cb, root));
+            countQuery.where(PredicateBuilder.buildPredicate(filter, cb, countRoot));
         }
         Long total = entityManager.createQuery(countQuery).getSingleResult();
 
