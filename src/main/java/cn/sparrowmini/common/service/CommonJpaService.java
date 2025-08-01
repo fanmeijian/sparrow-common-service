@@ -18,4 +18,6 @@ public interface CommonJpaService {
     public Object getEntity(String className, Object id);
 
     public Page<Object> getEntityList(String className, Pageable pageable, List<SimpleJpaFilter> filterList);
+
+    public Page<Object> getEntityList(String className, Pageable pageable, String filter);
 }

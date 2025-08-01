@@ -1,5 +1,6 @@
 package cn.sparrowmini.common.service;
 
+import cn.sparrowmini.common.antlr.PredicateBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
@@ -156,6 +157,59 @@ public class CommonJpaServiceImpl implements CommonJpaService {
         List<Predicate> countPredicates = this.getPredicates(countRoot, cb, filterList);
         if (!countPredicates.isEmpty()) {
             countQuery.where(countPredicates.toArray(new Predicate[0]));
+        }
+        Long total = entityManager.createQuery(countQuery).getSingleResult();
+
+        return new PageImpl<>(resultList, pageable, total);
+    }
+
+    @Override
+    public Page<Object> getEntityList(String className, Pageable pageable, String filter) {
+        Class<?> clazz;
+        try {
+            clazz = Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Class not found: " + className);
+        }
+
+        if (!clazz.isAnnotationPresent(Entity.class)) {
+            throw new IllegalArgumentException("Provided class is not a JPA entity: " + className);
+        }
+
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+
+        // 查询数据部分
+        CriteriaQuery<Object> cq = cb.createQuery(Object.class);
+        Root<?> root = cq.from(clazz);
+        cq.select(root);
+
+        // 构建动态 where 条件
+        if ( filter!=null && !filter.isBlank()) {
+            cq.where(PredicateBuilder.buildPredicate(filter, cb, root));
+        }
+
+        // 排序
+        if (pageable.getSort().isSorted()) {
+            List<Order> orders = new ArrayList<>();
+            for (Sort.Order order : pageable.getSort()) {
+                Path<Object> path = root.get(order.getProperty());
+                orders.add(order.isAscending() ? cb.asc(path) : cb.desc(path));
+            }
+            cq.orderBy(orders);
+        }
+
+        TypedQuery<Object> query = entityManager.createQuery(cq);
+        query.setFirstResult((int) pageable.getOffset());
+        query.setMaxResults(pageable.getPageSize());
+        List<Object> resultList = query.getResultList();
+
+        // 查询总数
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Class<?> entityType = root.getModel().getBindableJavaType();
+        Root<?> countRoot = countQuery.from(entityType);
+        countQuery.select(cb.count(countRoot));
+        if (filter!=null && !filter.isBlank()) {
+            countQuery.where(PredicateBuilder.buildPredicate(filter, cb, root));
         }
         Long total = entityManager.createQuery(countQuery).getSingleResult();
 
