@@ -44,7 +44,7 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
      * @param <T>
      */
     @Query("SELECT e FROM #{#entityName} e")
-    <T> Page<T> findAll(Pageable pageable, Class<T> type);
+    <S> Page<S> findAll(Pageable pageable, Class<S> type);
 
     /***
      * 自定义返回的视图类
@@ -81,13 +81,16 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
     }
 
     default <U> Page<U> findAll(Pageable pageable, String filter, Class<U> projectionClass) {
-        Specification<T> specification = new Specification<T>() {
+        Specification<T> specification = Specification.where(null);
+        if (filter != null) {
+            new Specification<T>() {
+                @Override
+                public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
+                    return PredicateBuilder.buildPredicate(filter, criteriaBuilder, root);
+                }
+            };
+        }
 
-            @Override
-            public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
-                return PredicateBuilder.buildPredicate(filter, criteriaBuilder, root);
-            }
-        };
         return findBy(
                 specification,
                 query -> query.as(projectionClass).page(pageable)
