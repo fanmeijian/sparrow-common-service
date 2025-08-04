@@ -118,12 +118,13 @@ public class CommonJpaServiceImpl implements CommonJpaService {
         }
     }
 
+    @Transactional
     @Override
     public <T, ID> T getEntity(Class<T> clazz, ID id) {
         return entityManager.find(clazz, id);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
     public Object getEntity(String className, Object id) {
         Class<?> clazz = null;
