@@ -33,7 +33,7 @@ import static cn.sparrowmini.common.util.JpaUtils.findPrimaryKeyField;
 
 
 @NoRepositoryBean
-public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
+public interface CommonJapRepository<T, ID> extends BaseRepository<T, ID>, JpaSpecificationExecutor<T> {
 
 
     /***
@@ -55,6 +55,16 @@ public interface CommonJapRepository<T, ID> extends JpaRepository<T, ID>, JpaSpe
      */
     @Query("SELECT e FROM #{#entityName} e WHERE e.id=:id")
     <T> Optional<T> findById(@Param("id") ID id, Class<T> type);
+
+//    default  <S> Optional<S> findByIdProjection(ID id, Class<S> projectionClass){
+//        Field pkField = findPrimaryKeyField(projectionClass);
+//        String pkFieldName = pkField.getName();
+//        Specification<T> specification = (root, query, cb) -> cb.equal(root.get(pkFieldName), id);
+//        return findBy(
+//                specification,
+//                query -> query.as(projectionClass).first()
+//        );
+//    }
 
     default Page<T> findAll(Pageable pageable, List<SimpleJpaFilter> filters) {
         Specification<T> specification = new Specification<T>() {
