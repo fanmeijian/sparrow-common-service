@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,106 +50,113 @@ public class ExprToPredicateVisitor extends ExprBaseVisitor<Predicate> {
         return visit(ctx.expr());
     }
 
+
     @Override
     public Predicate visitCompareExpr(ExprParser.CompareExprContext ctx) {
-        String fieldName = ctx.field().getText();
+        String fieldName = ctx.field().getText(); // 支持嵌套字段，如 "id.saleDate"
         String operator = ctx.comparator().getText();
         Object value = parseValue(ctx.value());
 
-        Path<?> path = root.get(fieldName);
+        Path<?> path = resolvePath(root, fieldName); // 处理嵌套字段路径
 
-        // 默认类型判断：字符串 or 数值
-        if (value instanceof String) {
-            Path<String> stringPath = (Path<String>) path;
+        if (value instanceof String str) {
             return switch (operator) {
-                case "=" -> cb.equal(stringPath, value);
-                case "!=" -> cb.notEqual(stringPath, value);
-                case "like" -> cb.like(stringPath, value.toString());
-                default -> throw new IllegalArgumentException("字符串不支持操作符: " + operator);
+                case "=" -> cb.equal(path, str);
+                case "!=" -> cb.notEqual(path, str);
+                case "like" -> cb.like(path.as(String.class), "%" + str + "%");
+                default -> throw new IllegalArgumentException("Unsupported string operator: " + operator);
             };
         } else if (value instanceof LocalDate date) {
-            Path<LocalDate> typedPath = root.get(fieldName);
             return switch (operator) {
-                case ">" -> cb.greaterThan(typedPath, date);
-                case "<" -> cb.lessThan(typedPath, date);
-                case ">=" -> cb.greaterThanOrEqualTo(typedPath, date);
-                case "<=" -> cb.lessThanOrEqualTo(typedPath, date);
-                case "=" -> cb.equal(typedPath, date);
-                case "!=" -> cb.notEqual(typedPath, date);
-                default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
+                case ">" -> cb.greaterThan(path.as(LocalDate.class), date);
+                case "<" -> cb.lessThan(path.as(LocalDate.class), date);
+                case ">=" -> cb.greaterThanOrEqualTo(path.as(LocalDate.class), date);
+                case "<=" -> cb.lessThanOrEqualTo(path.as(LocalDate.class), date);
+                case "=" -> cb.equal(path.as(LocalDate.class), date);
+                case "!=" -> cb.notEqual(path.as(LocalDate.class), date);
+                default -> throw new IllegalArgumentException("Unsupported LocalDate operator: " + operator);
             };
         } else if (value instanceof LocalDateTime dateTime) {
-            Path<LocalDateTime> typedPath = root.get(fieldName);
             return switch (operator) {
-                case ">" -> cb.greaterThan(typedPath, dateTime);
-                case "<" -> cb.lessThan(typedPath, dateTime);
-                case ">=" -> cb.greaterThanOrEqualTo(typedPath, dateTime);
-                case "<=" -> cb.lessThanOrEqualTo(typedPath, dateTime);
-                case "=" -> cb.equal(typedPath, dateTime);
-                case "!=" -> cb.notEqual(typedPath, dateTime);
-                default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
+                case ">" -> cb.greaterThan(path.as(LocalDateTime.class), dateTime);
+                case "<" -> cb.lessThan(path.as(LocalDateTime.class), dateTime);
+                case ">=" -> cb.greaterThanOrEqualTo(path.as(LocalDateTime.class), dateTime);
+                case "<=" -> cb.lessThanOrEqualTo(path.as(LocalDateTime.class), dateTime);
+                case "=" -> cb.equal(path.as(LocalDateTime.class), dateTime);
+                case "!=" -> cb.notEqual(path.as(LocalDateTime.class), dateTime);
+                default -> throw new IllegalArgumentException("Unsupported LocalDateTime operator: " + operator);
             };
         } else if (value instanceof OffsetDateTime offsetDateTime) {
-            Path<OffsetDateTime> typedPath = root.get(fieldName);
             return switch (operator) {
-                case ">" -> cb.greaterThan(typedPath, offsetDateTime);
-                case "<" -> cb.lessThan(typedPath, offsetDateTime);
-                case ">=" -> cb.greaterThanOrEqualTo(typedPath, offsetDateTime);
-                case "<=" -> cb.lessThanOrEqualTo(typedPath, offsetDateTime);
-                case "=" -> cb.equal(typedPath, offsetDateTime);
-                case "!=" -> cb.notEqual(typedPath, offsetDateTime);
-                default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
+                case ">" -> cb.greaterThan(path.as(OffsetDateTime.class), offsetDateTime);
+                case "<" -> cb.lessThan(path.as(OffsetDateTime.class), offsetDateTime);
+                case ">=" -> cb.greaterThanOrEqualTo(path.as(OffsetDateTime.class), offsetDateTime);
+                case "<=" -> cb.lessThanOrEqualTo(path.as(OffsetDateTime.class), offsetDateTime);
+                case "=" -> cb.equal(path.as(OffsetDateTime.class), offsetDateTime);
+                case "!=" -> cb.notEqual(path.as(OffsetDateTime.class), offsetDateTime);
+                default -> throw new IllegalArgumentException("Unsupported OffsetDateTime operator: " + operator);
             };
         } else if (value instanceof Number number) {
-            Path<Number> typedPath = root.get(fieldName);
             return switch (operator) {
-                case ">" -> cb.gt(typedPath, number);
-                case "<" -> cb.lt(typedPath, number);
-                case ">=" -> cb.ge(typedPath, number);
-                case "<=" -> cb.le(typedPath, number);
-                case "=" -> cb.equal(typedPath, number);
-                case "!=" -> cb.notEqual(typedPath, number);
-                default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
-            };
-        } else if (value instanceof String str) {
-            Path<String> stringPath = root.get(fieldName);
-            return switch (operator) {
-                case "=" -> cb.equal(stringPath, str);
-                case "!=" -> cb.notEqual(stringPath, str);
-                case "like" -> cb.like(stringPath, "%" + str + "%");
-                default -> throw new IllegalArgumentException("Unsupported string operator: " + operator);
+                case ">" -> cb.gt(path.as(Number.class), number);
+                case "<" -> cb.lt(path.as(Number.class), number);
+                case ">=" -> cb.ge(path.as(Number.class), number);
+                case "<=" -> cb.le(path.as(Number.class), number);
+                case "=" -> cb.equal(path.as(Number.class), number);
+                case "!=" -> cb.notEqual(path.as(Number.class), number);
+                default -> throw new IllegalArgumentException("Unsupported Number operator: " + operator);
             };
         } else {
             throw new IllegalArgumentException("不支持的值类型: " + value.getClass());
         }
-
     }
+
     private Object parseValue(ExprParser.ValueContext ctx) {
         if (ctx.STRING() != null) {
-            String raw = ctx.STRING().getText(); // e.g. '2024-07-05T12:34:56+08:00'
-            String unquoted = raw.substring(1, raw.length() - 1).replace("\\'", "'");
+            String raw = ctx.STRING().getText(); // e.g. 'abc-123'
+            String unquoted = raw.substring(1, raw.length() - 1).replace("\\'", "'").trim();
 
+            // 优先尝试日期时间类型
             try {
-                // Try OffsetDateTime first (most specific)
-                if (unquoted.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}")) {
-                    return java.time.OffsetDateTime.parse(unquoted);
-                }
-                // Then LocalDateTime
-                if (unquoted.length() >= 19 && unquoted.charAt(10) == 'T') {
-                    return java.time.LocalDateTime.parse(unquoted);
-                }
-                // Then LocalDate
-                if (unquoted.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                    return java.time.LocalDate.parse(unquoted);
-                }
+                return OffsetDateTime.parse(unquoted, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             } catch (DateTimeParseException ignored) {}
 
+            try {
+                return LocalDateTime.parse(unquoted, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            } catch (DateTimeParseException ignored) {}
+
+            try {
+                return LocalDate.parse(unquoted, DateTimeFormatter.ISO_LOCAL_DATE);
+            } catch (DateTimeParseException ignored) {}
+
+            // 布尔值（true/false，不区分大小写）
+            if (unquoted.equalsIgnoreCase("true")) return true;
+            if (unquoted.equalsIgnoreCase("false")) return false;
+
+            // 注意：UUID 结构不做转换，保持为字符串
+            // 你可在调用处通过字段类型判断后决定是否 UUID.fromString()
+
+            // 默认当成普通字符串返回
             return unquoted;
+
         } else if (ctx.NUMBER() != null) {
             String number = ctx.NUMBER().getText();
-            return number.contains(".") ? Double.parseDouble(number) : Integer.parseInt(number);
+            try {
+                if (number.contains(".")) {
+                    return Double.parseDouble(number);
+                } else {
+                    try {
+                        return Integer.parseInt(number);
+                    } catch (NumberFormatException e) {
+                        return Long.parseLong(number); // 比如很大的ID
+                    }
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("无法解析数值: " + number);
+            }
         }
-        return null;
+
+        return null; // 没匹配到
     }
 
     @Override
@@ -189,5 +197,13 @@ public class ExprToPredicateVisitor extends ExprBaseVisitor<Predicate> {
         return in;
     }
 
+    private Path<?> resolvePath(Root<?> root, String fieldPath) {
+        String[] parts = fieldPath.split("\\.");
+        Path<?> path = root;
+        for (String part : parts) {
+            path = path.get(part);
+        }
+        return path;
+    }
 
 }

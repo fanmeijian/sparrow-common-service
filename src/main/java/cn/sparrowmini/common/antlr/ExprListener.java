@@ -1,5 +1,4 @@
-// Generated from Expr.g4 by ANTLR 4.13.2
-package cn.sparrowmini.common.antlr;
+package cn.sparrowmini.common.antlr;// Generated from Expr.g4 by ANTLR 4.13.2
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 /**

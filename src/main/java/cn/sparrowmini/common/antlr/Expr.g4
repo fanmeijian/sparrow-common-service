@@ -12,7 +12,7 @@ expr
     | field IN '(' valueList ')' # InExpr
     ;
 
-field       : ID ;
+field       : ID ('.' ID)* ;
 comparator  : '=' | '!=' | '<' | '<=' | '>' | '>=' | 'like' ;
 value       : STRING | NUMBER ;
 valueList   : value (',' value)* ;

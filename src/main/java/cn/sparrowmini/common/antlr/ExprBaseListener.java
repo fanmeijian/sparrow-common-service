@@ -1,6 +1,5 @@
 // Generated from Expr.g4 by ANTLR 4.13.2
 package cn.sparrowmini.common.antlr;
-import cn.sparrowmini.common.antlr.ExprParser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
