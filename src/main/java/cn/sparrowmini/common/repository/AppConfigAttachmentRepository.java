@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 
-public interface AppConfigAttachmentRepository extends CommonJapRepository<AppConfigAttachment, String> {
+public interface AppConfigAttachmentRepository extends BaseStateRepository<AppConfigAttachment, String> {
 
     @Transactional
     @Modifying

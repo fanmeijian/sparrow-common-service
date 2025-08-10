@@ -32,59 +32,75 @@ public class CommonJpaServiceImpl implements CommonJpaService {
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-
     @Transactional
     @Override
-    public <T, ID> List<ID> saveEntity(List<T> body) {
+    public <T, ID> List<ID> upsertEntity(Class<T> clazz, List<Map<String, Object>> entities) {
         List<ID> ids = new ArrayList<>();
+        entities.forEach(entity -> {
+            Field pkField = JpaUtils.getIdField(clazz);
+            String pkFieldName = pkField.getName();
+            Object id = entity.get(pkFieldName);
+            Map<String, Object> patchMap = new HashMap<>(entity);
+            patchMap.remove(pkFieldName); // 再加一行，确保主键不会被误覆盖
+            if (id != null) {
+                ID pkValue = (ID) JpaUtils.convertToPkValue(id, clazz);
+                T objectRef = null;
+                try {
+                    objectRef = entityManager.getReference(clazz, pkValue);
 
-        for (T o : body) {
-            entityManager.persist(o);
-            ids.add(JpaUtils.getIdValue(o));
-        }
+                } catch (EntityNotFoundException e) {
+                    throw new RuntimeException("没有找到主键：" + pkValue);
+                }
+
+                // 将 patch 字段合并进 reference 实体（只会触发一次 UPDATE）
+                try {
+
+                    objectMapper
+                            .readerForUpdating(objectRef)
+                            .readValue(objectMapper.writeValueAsString(patchMap));
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                ids.add(pkValue);
+            } else {
+                T newEntity = objectMapper.convertValue(patchMap, clazz);
+                entityManager.persist(newEntity);
+                pkField.setAccessible(true);
+                try {
+                    ids.add((ID) pkField.get(newEntity));
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+        });
         return ids;
     }
 
     @Transactional
     @Override
-    public <T> void updateEntity(Class<T> clazz, List<Map<String, Object>> entities) {
-        entities.forEach(entity -> {
-            Field pkField = JpaUtils.getIdField(clazz);
-            String pkFieldName = pkField.getName();
-            Object id = entity.get(pkFieldName);
-            Object pkValue = JpaUtils.convertToPkValue(id, clazz);
-            Object objectRef = entityManager.getReference(clazz, pkValue);
-            Map<String, Object> patchMap = new HashMap<>(entity);
-            patchMap.remove(pkFieldName); // 再加一行，确保主键不会被误覆盖
-            // 将 patch 字段合并进 reference 实体（只会触发一次 UPDATE）
-            try {
-                objectMapper
-                        .readerForUpdating(objectRef)
-                        .readValue(objectMapper.writeValueAsString(patchMap));
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-    }
-
-    @Transactional
-    @Override
-    public <T, ID> void deleteEntity(Class<T> clazz, Set<ID> ids) {
-        Class<?> idClass = JpaUtils.getIdType(clazz);
+    public <T, ID> long deleteEntity(Class<T> clazz, Set<ID> ids) {
+        long i = 0;
+        Class<ID> idClass = (Class<ID>) JpaUtils.getIdType(clazz);
         for (ID id : ids) {
-            Object id_ = id;
-            if (ids.toString().startsWith("{")) {
-                id_ = objectMapper.convertValue(id, idClass);
+            ID id_ = objectMapper.convertValue(id, idClass);
+            T entityRef = null;
+            try {
+                entityRef = entityManager.getReference(clazz, id_);
+                entityManager.remove(entityRef);
+                i++;
+            } catch (EntityNotFoundException e) {
+                ;
             }
-            Object entityRef = entityManager.getReference(clazz, id_);
-            entityManager.remove(entityRef);
         }
+        return i;
     }
 
     @Transactional
     @Override
-    public <T, ID> T getEntity(Class<T> clazz, ID id) {
+    public <T, ID> T getEntity(Class<T> clazz, ID id_) {
+        Class<?> idClass = JpaUtils.getIdType(clazz);
+        Object id = objectMapper.convertValue(id_, idClass);
         return entityManager.find(clazz, id);
     }
 
@@ -92,50 +108,16 @@ public class CommonJpaServiceImpl implements CommonJpaService {
     @Transactional
     @Override
     public <T> Page<T> getEntityList(Class<T> clazz, Pageable pageable, String filter) {
-//        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-//        // 查询数据部分
-//        CriteriaQuery<T> cq = cb.createQuery(clazz);
-//        Root<T> root = cq.from(clazz);
-//        cq.select(root);
-//
-//        // 构建动态 where 条件
-//        if (filter != null && !filter.isBlank()) {
-//            cq.where(PredicateBuilder.buildPredicate(filter, cb, root));
-//        }
-
-//        // 排序
-//        if (pageable.getSort().isSorted()) {
-//            List<Order> orders = new ArrayList<>();
-//            for (Sort.Order order : pageable.getSort()) {
-//                Path<Object> path = root.get(order.getProperty());
-//                orders.add(order.isAscending() ? cb.asc(path) : cb.desc(path));
-//            }
-//            cq.orderBy(orders);
-//        }
-
         TypedQuery<T> query = this.getQuery(filter, pageable, clazz);
-
-
         if (pageable.isPaged()) {
             query.setFirstResult(PageableUtils.getOffsetAsInteger(pageable));
             query.setMaxResults(pageable.getPageSize());
         }
 
         return PageableExecutionUtils.getPage(query.getResultList(), pageable, () -> {
-            return this.getCountQuery(filter,clazz).getSingleResult();
+            return this.getCountQuery(filter, clazz).getSingleResult();
         });
 
-        // 查询总数
-//        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
-//        Class<?> entityType = root.getModel().getBindableJavaType();
-//        Root<?> countRoot = countQuery.from(entityType);
-//        countQuery.select(cb.count(countRoot));
-//        if (filter != null && !filter.isBlank()) {
-//            countQuery.where(PredicateBuilder.buildPredicate(filter, cb, countRoot));
-//        }
-//        Long total = entityManager.createQuery(countQuery).getSingleResult();
-
-//        return new PageImpl<>(resultList, pageable, total);
     }
 
     private <T> TypedQuery<Long> getCountQuery(String filter, Class<T> domainClass) {
@@ -149,7 +131,7 @@ public class CommonJpaServiceImpl implements CommonJpaService {
         return this.entityManager.createQuery(countQuery);
     }
 
-    private <T> TypedQuery<T> getQuery(String filter, Pageable pageable, Class<T> domainClass){
+    private <T> TypedQuery<T> getQuery(String filter, Pageable pageable, Class<T> domainClass) {
         CriteriaBuilder builder = this.entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = builder.createQuery(domainClass);
         Root<T> root = query.from(domainClass);

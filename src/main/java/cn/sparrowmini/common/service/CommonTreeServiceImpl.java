@@ -2,59 +2,69 @@ package cn.sparrowmini.common.service;
 
 import cn.sparrowmini.common.model.ApiResponse;
 import cn.sparrowmini.common.model.BaseTree;
-import cn.sparrowmini.common.model.BaseTreeRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import cn.sparrowmini.common.repository.BaseTreeRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public abstract class CommonTreeServiceImpl<T extends BaseTree> implements CommonTreeService<T> {
-    protected abstract BaseTreeRepository<T> getRepository();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+@Service
+public class CommonTreeServiceImpl implements CommonTreeService {
 
-    @Override
-    public Page<?> getChildren(String parentId, Pageable pageable) {
-        return getRepository().getChildren_(parentId, pageable);
-    }
+    @Autowired(required = false)
+    private List<BaseTreeRepository<? extends BaseTree, ?>> baseTreeRepositories;
 
-    @Override
-    public T getNode(String id) {
-        return getRepository().getReferenceById(id);
-    }
-
-    @Override
-    public void moveNode(String currentId, String nextId, Object body) {
-        getRepository().move(currentId, nextId);
-    }
-
-    @Override
-    public ApiResponse<String> saveNode(T commonTree) {
-        return new ApiResponse<>(getRepository().save(commonTree).getId());
-    }
-
-    @Override
-    public void saveNode(String id, Map<String, Object> map) {
-        T commonTree = getRepository().getReferenceById(id);
-        // 将 patch 字段合并进 reference 实体（只会触发一次 UPDATE）
-        try {
-            objectMapper
-                    .readerForUpdating(commonTree)
-                    .readValue(objectMapper.writeValueAsString(map));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+    @PostConstruct
+    public void init() {
+        if (baseTreeRepositories == null) {
+            baseTreeRepositories = Collections.emptyList();
         }
-        getRepository().save(commonTree);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends BaseTree, ID> BaseTreeRepository<T, ID> getByDomainClass(Class<T> domainClass) {
+        return (BaseTreeRepository<T, ID>) baseTreeRepositories
+                .stream()
+                .filter(repo -> repo.domainType().equals(domainClass))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No repository found for " + domainClass));
+    }
+
+
+    @Override
+    public <ID> void moveNode(ID currentId, ID nextId, Class<? extends BaseTree> domainClass) {
+        BaseTreeRepository<? extends BaseTree, ID> baseTreeRepository = getByDomainClass(domainClass);
+        baseTreeRepository.move(currentId, nextId);
     }
 
     @Override
-    public void deleteNode(Set<String> ids) {
-        getRepository().deleteCascade(ids);
+    public <T extends BaseTree, ID> Page<T> getChildren(ID parentId, Pageable pageable, Class<T> domainClass) {
+        BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
+        return baseTreeRepository.getChildren(parentId,pageable);
+    }
+
+    @Override
+    public <T extends BaseTree, ID> T getNode(ID id, Class<T> domainClass) {
+        BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
+        return baseTreeRepository.findById(id).orElseThrow();
+    }
+
+    @Override
+    public <T extends BaseTree, ID> ApiResponse<List<ID>> saveNode(List<Map<String, Object>> entitiesMap, Class<T> domainClass) {
+        BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
+        return new ApiResponse<>(baseTreeRepository.upsert(entitiesMap));
+    }
+
+    @Override
+    public <T extends BaseTree, ID> void deleteNode(Set<ID> ids, Class<T> domainClass) {
+        BaseTreeRepository<? extends BaseTree, ID> baseTreeRepository = getByDomainClass(domainClass);
+        baseTreeRepository.deleteCascade(ids);
     }
 
 }

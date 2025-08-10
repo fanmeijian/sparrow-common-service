@@ -4,12 +4,19 @@ import cn.sparrowmini.common.model.ApiResponse;
 import cn.sparrowmini.common.model.BaseTree;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.lang.Nullable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface CommonTreeService<T extends BaseTree> {
+public interface CommonTreeService{
+
+    /**
+     * 移动节点
+     * @param currentId
+     * @param nextId
+     */
+    public <ID> void moveNode(ID currentId, ID nextId,Class<? extends BaseTree> domainClass);
 
     /**
      * 获取子节点
@@ -17,40 +24,26 @@ public interface CommonTreeService<T extends BaseTree> {
      * @param pageable
      * @return
      */
-    public Page<?> getChildren(String parentId, Pageable pageable);
+    public <T extends BaseTree, ID> Page<T> getChildren(ID parentId, Pageable pageable,Class<T> domainClass);
 
     /**
      * 节点详情
      * @param id
      * @return
      */
-    public T getNode(String id);
+    public <T extends BaseTree, ID> T getNode(ID id,Class<T> domainClass);
 
     /**
-     * 移动节点
-     * @param currentId
-     * @param nextId
-     * @param body
-     */
-    public void moveNode(String currentId, String nextId, @Nullable Object body);
-
-    /**
-     * 新增节点
-     * @param commonTree
+     * 新增或更新节点
+     * @param entitiesMap
      * @return
      */
-    public ApiResponse<String> saveNode(T commonTree);
-
-    /***
-     * 更新节点
-     * @param id
-     * @param map
-     */
-    public void saveNode(String id ,Map<String, Object> map);
+    public <T extends BaseTree, ID> ApiResponse<List<ID>> saveNode(List<Map<String, Object>> entitiesMap,Class<T> domainClass);
 
     /**
      * 删除节点
      * @param ids
      */
-    public void deleteNode(Set<String> ids);
+    public <T extends BaseTree, ID> void deleteNode(Set<ID> ids,Class<T> domainClass);
+
 }
