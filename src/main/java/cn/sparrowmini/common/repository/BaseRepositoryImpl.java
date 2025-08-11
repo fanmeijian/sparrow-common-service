@@ -97,6 +97,7 @@ public class BaseRepositoryImpl<T, ID>
                                                Class<?> projectionClass, String prefix,
                                                Map<String, From<?, ?>> joins) {
 
+        System.out.println(extractPropertyPaths(projectionClass,""));
         List<Selection<?>> selections = new ArrayList<>();
 
         if (projectionClass.isInterface()) {

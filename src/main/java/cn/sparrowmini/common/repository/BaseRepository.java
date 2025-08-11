@@ -55,15 +55,14 @@ public interface BaseRepository<T, ID>
      * @param <P>
      * @return
      */
-//    default <U> Page<U> findAllProjection(Pageable pageable, String filter, Class<U> projectionClass) {
-//        Specification<T> specification = filter == null ? Specification.where(null) : filterSpecification(filter);
-//
-//        return findBy(
-//                specification,
-//                query -> query.project(getPropertyNames(projectionClass)).as(projectionClass).page(pageable)
-//        );
-//    }
-    <P> Page<P> findAllProjection(Pageable pageable, String filter, Class<P> projectionClass);
+    default <U> Page<U> findAllProjection(Pageable pageable, String filter, Class<U> projectionClass) {
+        Specification<T> specification = filter == null ? Specification.where(null) : filterSpecification(filter);
+        return findBy(
+                specification,
+                query -> query.as(projectionClass).page(pageable)
+        );
+    }
+//    <P> Page<P> findAllProjection(Pageable pageable, String filter, Class<P> projectionClass);
 
 
     /**
