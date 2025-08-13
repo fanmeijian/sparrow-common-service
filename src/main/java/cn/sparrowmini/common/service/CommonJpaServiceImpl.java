@@ -2,6 +2,7 @@ package cn.sparrowmini.common.service;
 
 import cn.sparrowmini.common.antlr.PredicateBuilder;
 import cn.sparrowmini.common.util.JpaUtils;
+import cn.sparrowmini.common.util.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
@@ -30,7 +31,7 @@ import static cn.sparrowmini.common.util.JpaUtils.findPrimaryKeyField;
 public class CommonJpaServiceImpl implements CommonJpaService {
     @PersistenceContext
     private final EntityManager entityManager;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonUtils.getMapper();
 
     @Transactional
     @Override
