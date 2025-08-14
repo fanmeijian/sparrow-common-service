@@ -95,9 +95,11 @@ public interface BaseRepository<T, ID>
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException("Patch更新失败" + e.getOriginalMessage(), e);
                     }
-                } else {
-                    throw new RuntimeException("Patch更新失败， 无法找到主键" + id);
+                }else{
+                    T newEntity = mapper.convertValue(entityMap, domainType());
+                    entities.add(newEntity);
                 }
+
             } else {
                 T newEntity = mapper.convertValue(entityMap, domainType());
                 entities.add(newEntity);
