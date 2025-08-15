@@ -80,15 +80,23 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
         BigDecimal newSeq = null;
 
         if (next != null) {
+            //目标节点的seq
             final BigDecimal nextSeq = next.getSeq();
             if (current.getParentId() != null && next.getParentId() != null && current.getParentId().equals(next.getParentId())) {
+                //目标节点的前一个节点的排序
                 BigDecimal preSeq = getPreSeqByParentId(current.getParentId(), next.getSeq());
                 if (preSeq == null) {
                     // move to first node
                     newSeq = nextSeq.subtract(step);
                 } else {
                     // insert to middle
-                    newSeq = preSeq.add(nextSeq).divide(two);
+                    BigDecimal distance = nextSeq.subtract(preSeq);
+                    if(distance.compareTo(BigDecimal.ZERO)>0){
+                        newSeq = nextSeq.subtract(distance.divide(two)) ;
+                    }else{
+                        newSeq = nextSeq.subtract(step);
+                    }
+
                 }
 
 
@@ -99,7 +107,12 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
                     newSeq = nextSeq.subtract(step);
                 } else {
                     // insert to middle
-                    newSeq = preSeq.add(nextSeq).divide(two);
+                    BigDecimal distance = nextSeq.subtract(preSeq);
+                    if(distance.compareTo(BigDecimal.ZERO)>0){
+                        newSeq = nextSeq.subtract(distance.divide(two)) ;
+                    }else{
+                        newSeq = nextSeq.subtract(step);
+                    }
                 }
 
 
@@ -139,7 +152,7 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
     }
 
     default Page<S> getAllChildren(ID parentId, Pageable pageable_) {
-        Pageable pageable = pageable_ == null || pageable_.getPageSize() >= 2000 ? Pageable.unpaged(Sort.by(BaseTree_.SEQ)) : pageable_;
+        Pageable pageable = pageable_ == null || pageable_.isUnpaged() || pageable_.getPageSize() >= 2000 ? Pageable.unpaged(Sort.by(BaseTree_.SEQ)) : pageable_;
         Page<S> rootPage = findByParentId(parentId, pageable);
         List<S> root = rootPage.getContent();
         root.forEach(r -> {
