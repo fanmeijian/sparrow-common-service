@@ -3,6 +3,7 @@ package cn.sparrowmini.common.service;
 import cn.sparrowmini.common.model.ApiResponse;
 import cn.sparrowmini.common.model.BaseTree;
 import cn.sparrowmini.common.repository.BaseTreeRepository;
+import cn.sparrowmini.common.util.JsonUtils;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -52,7 +53,8 @@ public class CommonTreeServiceImpl implements CommonTreeService {
     @Override
     public <T extends BaseTree, ID> T getNode(ID id, Class<T> domainClass) {
         BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
-        return baseTreeRepository.findById(id).orElseThrow();
+        ID pk = JsonUtils.getMapper().convertValue(id, baseTreeRepository.idType());
+        return baseTreeRepository.findById(pk).orElseThrow();
     }
 
     @Override
