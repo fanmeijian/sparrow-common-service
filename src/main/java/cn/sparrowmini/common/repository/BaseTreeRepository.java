@@ -81,7 +81,7 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
 
         if (next != null) {
             //目标节点的seq
-            final BigDecimal nextSeq = next.getSeq();
+            final BigDecimal nextSeq = next.getSeq()==null?BigDecimal.ONE:next.getSeq();
             if (current.getParentId() != null && next.getParentId() != null && current.getParentId().equals(next.getParentId())) {
                 //目标节点的前一个节点的排序
                 BigDecimal preSeq = getPreSeqByParentId(current.getParentId(), next.getSeq());
