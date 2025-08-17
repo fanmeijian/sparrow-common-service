@@ -42,20 +42,17 @@ public class CommonJpaServiceImpl implements CommonJpaService {
             String pkFieldName = pkField.getName();
             Object id = entity.get(pkFieldName);
             Map<String, Object> patchMap = new HashMap<>(entity);
-            patchMap.remove(pkFieldName); // 再加一行，确保主键不会被误覆盖
-            if (id != null) {
+            GeneratedValue generatedValue = pkField.getAnnotation(GeneratedValue.class);
+            if (generatedValue != null) {
+                patchMap.remove(pkFieldName); // 再加一行，确保主键不会被误覆盖
+            }
+
+            try {
                 ID pkValue = (ID) JpaUtils.convertToPkValue(id, clazz);
-                T objectRef = null;
-                try {
-                    objectRef = entityManager.getReference(clazz, pkValue);
-
-                } catch (EntityNotFoundException e) {
-                    throw new RuntimeException("没有找到主键：" + pkValue);
-                }
-
+                T objectRef = entityManager.getReference(clazz, pkValue);
+                System.out.println(objectRef);
                 // 将 patch 字段合并进 reference 实体（只会触发一次 UPDATE）
                 try {
-
                     objectMapper
                             .readerForUpdating(objectRef)
                             .readValue(objectMapper.writeValueAsString(patchMap));
@@ -63,24 +60,23 @@ public class CommonJpaServiceImpl implements CommonJpaService {
                     throw new RuntimeException(e);
                 }
                 ids.add(pkValue);
-            } else {
+            } catch (EntityNotFoundException | IllegalArgumentException e) {
                 T newEntity = objectMapper.convertValue(patchMap, clazz);
                 entityManager.persist(newEntity);
                 pkField.setAccessible(true);
                 try {
                     ids.add((ID) pkField.get(newEntity));
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
+                } catch (IllegalAccessException ex) {
+                    throw new RuntimeException(ex);
                 }
             }
-
         });
         return ids;
     }
 
     @Transactional
     @Override
-    public <T, ID> long deleteEntity(Class<T> clazz, Set<ID> ids) {
+    public <T, ID> long deleteEntity(Class<T> clazz, Collection<ID> ids) {
         long i = 0;
         Class<ID> idClass = (Class<ID>) JpaUtils.getIdType(clazz);
         for (ID id : ids) {
@@ -119,6 +115,23 @@ public class CommonJpaServiceImpl implements CommonJpaService {
             return this.getCountQuery(filter, clazz).getSingleResult();
         });
 
+    }
+
+    @Transactional
+    @Override
+    public <T, ID> List<ID> saveEntity(Class<T> clazz,List<T> entities) {
+        List<ID> ids = new ArrayList<>();
+        entities.forEach(entity-> {
+            entityManager.persist(entity);
+            Field pkField = JpaUtils.getIdField(clazz);
+            pkField.setAccessible(true);
+            try {
+                ids.add((ID) pkField.get(entity));
+            } catch (IllegalAccessException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+        return ids;
     }
 
     private <T> TypedQuery<Long> getCountQuery(String filter, Class<T> domainClass) {
