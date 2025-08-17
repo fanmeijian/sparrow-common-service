@@ -31,7 +31,7 @@ public class ModelService {
 
     @Transactional
     public void synchronize() {
-        List<String> ignoreFields = List.of("createdDate", "createdBy", "modifiedDate", "modifiedBy", "errMessages", "serialVersionUID");
+        List<String> ignoreFields = List.of("createdDate", "createdBy", "modifiedDate", "modifiedBy", "errMessages", "serialVersionUID","modelName","entityStat","hidden","stat","enabled","dataPermissionTokenId","id","seq");
 
         Set<EntityType<?>> entityTypes = this.entityManager.getMetamodel().getEntities();
         List<Model> models = new ArrayList<Model>();
