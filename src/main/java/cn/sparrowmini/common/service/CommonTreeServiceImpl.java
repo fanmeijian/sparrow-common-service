@@ -1,5 +1,6 @@
 package cn.sparrowmini.common.service;
 
+import cn.sparrowmini.common.dto.BaseTreeDto;
 import cn.sparrowmini.common.model.ApiResponse;
 import cn.sparrowmini.common.model.BaseTree;
 import cn.sparrowmini.common.repository.BaseTreeRepository;
@@ -48,6 +49,12 @@ public class CommonTreeServiceImpl implements CommonTreeService {
     public <T extends BaseTree, ID> Page<T> getChildren(ID parentId, Pageable pageable, Class<T> domainClass) {
         BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
         return baseTreeRepository.getChildren(parentId,pageable);
+    }
+
+    @Override
+    public <T extends BaseTree, P extends BaseTreeDto, ID> Page<P> getChildrenProjection(ID parentId, Pageable pageable, Class<T> domainClass, Class<P> projectionClass) {
+        BaseTreeRepository<T, ID> baseTreeRepository = getByDomainClass(domainClass);
+        return baseTreeRepository.findByParentIdProjection(parentId,pageable, projectionClass);
     }
 
     @Override

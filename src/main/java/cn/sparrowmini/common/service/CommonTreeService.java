@@ -1,5 +1,6 @@
 package cn.sparrowmini.common.service;
 
+import cn.sparrowmini.common.dto.BaseTreeDto;
 import cn.sparrowmini.common.model.ApiResponse;
 import cn.sparrowmini.common.model.BaseTree;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,15 @@ public interface CommonTreeService{
      * @return
      */
     public <T extends BaseTree, ID> Page<T> getChildren(ID parentId, Pageable pageable,Class<T> domainClass);
+
+    /**
+     * 可以获取Projection类
+     * @param parentId
+     * @param pageable
+     * @return
+     */
+    public <T extends BaseTree, P extends BaseTreeDto, ID> Page<P> getChildrenProjection(ID parentId, Pageable pageable, Class<T> domainClass, Class<P> projectionClass);
+
 
     /**
      * 节点详情

@@ -1,5 +1,6 @@
 package cn.sparrowmini.common.repository;
 
+import cn.sparrowmini.common.dto.BaseTreeDto;
 import cn.sparrowmini.common.model.BaseTree;
 import cn.sparrowmini.common.model.BaseTree_;
 import cn.sparrowmini.common.model.BaseUuidEntity;
@@ -54,14 +55,18 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
 
     Page<S> findByParentId(ID parentId, Pageable pageable);
 
-    default <P> Page<P> findByParentIdProjection(ID parentId, Pageable pageable_, Class<P> projectionClass) {
+    default <P extends BaseTreeDto> Page<P> findByParentIdProjection(ID parentId, Pageable pageable_, Class<P> projectionClass) {
         Pageable pageable = pageable_ == null || pageable_.getPageSize() >= 2000
                 ? Pageable.unpaged(Sort.by(BaseTree_.SEQ))
                 : pageable_;
-        return findBy(
+        Page<P> children = findBy(
                 parentIdSpecification(parentId),
-                query -> query.as(projectionClass).page(pageable)
-        );
+                query -> query.as(projectionClass).page(pageable));
+        children.forEach(child -> {
+            long count = countByParentId((ID) child.getId());
+            child.setChildCount(count);
+        });
+        return children;
     }
 
     long countByParentId(ID parentId);
@@ -81,7 +86,7 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
 
         if (next != null) {
             //目标节点的seq
-            final BigDecimal nextSeq = next.getSeq()==null?BigDecimal.ONE:next.getSeq();
+            final BigDecimal nextSeq = next.getSeq() == null ? BigDecimal.ONE : next.getSeq();
             if (current.getParentId() != null && next.getParentId() != null && current.getParentId().equals(next.getParentId())) {
                 //目标节点的前一个节点的排序
                 BigDecimal preSeq = getPreSeqByParentId(current.getParentId(), next.getSeq());
@@ -91,9 +96,9 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
                 } else {
                     // insert to middle
                     BigDecimal distance = nextSeq.subtract(preSeq);
-                    if(distance.compareTo(BigDecimal.ZERO)>0){
-                        newSeq = nextSeq.subtract(distance.divide(two)) ;
-                    }else{
+                    if (distance.compareTo(BigDecimal.ZERO) > 0) {
+                        newSeq = nextSeq.subtract(distance.divide(two));
+                    } else {
                         newSeq = nextSeq.subtract(step);
                     }
 
@@ -108,9 +113,9 @@ public interface BaseTreeRepository<S extends BaseTree, ID> extends BaseStateRep
                 } else {
                     // insert to middle
                     BigDecimal distance = nextSeq.subtract(preSeq);
-                    if(distance.compareTo(BigDecimal.ZERO)>0){
-                        newSeq = nextSeq.subtract(distance.divide(two)) ;
-                    }else{
+                    if (distance.compareTo(BigDecimal.ZERO) > 0) {
+                        newSeq = nextSeq.subtract(distance.divide(two));
+                    } else {
                         newSeq = nextSeq.subtract(step);
                     }
                 }
